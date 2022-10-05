@@ -71,14 +71,15 @@ uint64_t tape[(MAX_SPACE * 2 + 1) / 64 + 1];
 // Machine simulation status:
 #define HALTING 0
 #define NONHALTING 1
-#define UNDECIDED 2
+#define UNDECIDED_SPACE 2
+#define UNDECIDED_TIME 3
 
 uint8_t simulate(uint64_t transition_int) {
     // Start in the middle of the tape, so that we have enough space on both the
     // left and the right. We encode the index using i1, i2 = divmod(index, 64).
     int index = MAX_SPACE, i1 = index / 64, i2 = index % 64;
-    // The tape begins uninitialized, so we need to continously "clean" tape cells
-    // to 0 whenever we first reach them
+    // The tape begins uninitialized, so we need to continously "clean" tape
+    // cells to 0 whenever we first reach them
     tape[i1] = 0;
     uint64_t min_index_reached = index, max_index_reached = index, read_value = tape[i1], transition;
     signed char move_delta;
@@ -138,11 +139,11 @@ uint8_t simulate(uint64_t transition_int) {
         }
         // Did we go above the space limit?
         if (max_index_reached - min_index_reached + 1 > MAX_SPACE) {
-            return (UNDECIDED);
+            return (UNDECIDED_SPACE);
         }
     }
     // If we reached this point, we must have gone above the time limit:
-    return (UNDECIDED);
+    return (UNDECIDED_TIME);
 }
 
 // Prune machines with two identical (non-halting) states.
@@ -249,7 +250,7 @@ int main() {
         (((0 << 4) + (0 << 3) + (uint64_t)H) << 25) +
         (((0 << 4) + (0 << 3) + (uint64_t)H) << 30) +
         (((0 << 4) + (0 << 3) + (uint64_t)H) << 35) +
-        (((0 << 4) + (1 << 3) + (uint64_t)H) << 40) +
+        (((0 << 4) + (0 << 3) + (uint64_t)H) << 40) +
         (((0 << 4) + (0 << 3) + (uint64_t)H) << 45) +
         (9ull << 50) +
         (1ull << 54)
@@ -257,12 +258,6 @@ int main() {
     std::ofstream myfile;
     myfile.open(std::to_string(root) + ".txt");
     std::queue<uint64_t> machine_queue;
-    // We count each machine as we insert them into the queue.
-    // Since we insert root into the queue outside the loop, we count it here:
-    int seen = 1;
-    int halting = 0;
-    int nonhalting = 0;
-    int undecided = 0;
     uint64_t first_undefined_state, child;
     machine_queue.push(root);
     std::srand(std::time(nullptr));
@@ -271,45 +266,35 @@ int main() {
         uint64_t machine = machine_queue.front();
         uint8_t status = simulate(machine);
         myfile << machine << " " << (int)status << std::endl;
-        if (status == UNDECIDED) {
-            undecided++;
-        }
-        else {
-            if (status == NONHALTING) {
-                nonhalting++;
-            }
-            else {
-                halting++;
-                // Should we generate its children?
-                uint8_t state = (status >> 3) & 0b111;
-                bool read_bit = (status >> 2) & 0b1;
-                uint8_t transition_index = state * 2 + read_bit;
-                if (((machine >> 50) & 0b1111) > 1) {
-                    // If there are several undefined states, only consider the
-                    // first one - they are all equivalent
-                    first_undefined_state = machine >> 54;
-                    first_undefined_state += (first_undefined_state == state ? 1 : 0);
-                    for (uint64_t new_write_bit = 0; new_write_bit < 2; new_write_bit++) {
-                        for (uint64_t new_direction = 0; new_direction < 2; new_direction++) {
-                            for (uint64_t new_state = 0; new_state < STATES; new_state++) {
-                                // Initialize the child to be identical to
-                                // its parent:
-                                child = machine;
-                                // Add the new transition:
-                                child &= 0b11111111111111111111111111111111111111111111111111ull ^ (0b11111ull << (5 * transition_index));
-                                child |= (new_direction << (4 + 5 * transition_index)) + (new_write_bit << (5 * transition_index + 3)) + (new_state << (5 * transition_index));
-                                // Update the new number of undefined
-                                // transitions to be one less than at
-                                // the parent:
-                                child |= (((machine >> 50) & 0b1111) - 1) << 50;
-                                // Update the first undefined state:
-                                child |= (first_undefined_state) << 54;
-                                // Should it be pruned?
-                                if ((new_state <= first_undefined_state) && (!prune_equivalent_states(child, state)) && (!prune_useless_states(child, state, read_bit))) {
-                                    // If not, add it to the queue:
-                                    machine_queue.push(child);
-                                    seen += 1;
-                                }
+        if ((status & 0b11) == HALTING) {
+            // Should we generate its children?
+            uint8_t state = (status >> 3) & 0b111;
+            bool read_bit = (status >> 2) & 0b1;
+            uint8_t transition_index = state * 2 + read_bit;
+            if (((machine >> 50) & 0b1111) > 1) {
+                // If there are several undefined states, only consider the
+                // first one - they are all equivalent
+                first_undefined_state = machine >> 54;
+                first_undefined_state += (first_undefined_state == state ? 1 : 0);
+                for (uint64_t new_write_bit = 0; new_write_bit < 2; new_write_bit++) {
+                    for (uint64_t new_direction = 0; new_direction < 2; new_direction++) {
+                        for (uint64_t new_state = 0; new_state < STATES; new_state++) {
+                            // Initialize the child to be identical to
+                            // its parent:
+                            child = machine;
+                            // Add the new transition:
+                            child &= 0b11111111111111111111111111111111111111111111111111ull ^ (0b11111ull << (5 * transition_index));
+                            child |= (new_direction << (4 + 5 * transition_index)) + (new_write_bit << (5 * transition_index + 3)) + (new_state << (5 * transition_index));
+                            // Update the new number of undefined
+                            // transitions to be one less than at
+                            // the parent:
+                            child |= (((machine >> 50) & 0b1111) - 1) << 50;
+                            // Update the first undefined state:
+                            child |= (first_undefined_state) << 54;
+                            // Should it be pruned?
+                            if ((new_state <= first_undefined_state) && (!prune_equivalent_states(child, state)) && (!prune_useless_states(child, state, read_bit))) {
+                                // If not, add it to the queue:
+                                machine_queue.push(child);
                             }
                         }
                     }
@@ -318,6 +303,7 @@ int main() {
         }
         machine_queue.pop();
     }
+    myfile << "done" << std::endl;
     myfile.close();
     return 0;
 }
