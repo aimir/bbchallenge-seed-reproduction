@@ -2,7 +2,7 @@
 
 This code is designed to replicate and verify the work done in [bbchallenge-seed](https://github.com/bbchallenge/bbchallenge-seed), to generate a database of undecided 5-state Turing machines.
 
-The results I had agree with those of the original repository completely - it found the exact same `88,664,064` undecided machines as the original repository.
+The results I had agree with those of the original repository completely - it found the exact same `88,664,064` undecided machines as the original repository, as well as the same total number of machines enumerated. To be more accurate, the original repository has `125,479,953` while this one has `125,479,954` - but the difference is due to the fact that this code also counts the first machine `1RB---------------------------` in that number, while the original repository doesn't.
 
 ## The Contents of this Repository
 
@@ -21,15 +21,13 @@ One of the neat things about this simulation method is that it is very paralleli
 
 I have then taken each of the resulting `7,322` halting machines that had exactly 5 halting, and written their integer encodings to the file `starts.txt`. I could then iterate on each of those machines separately, generating its subtree in a separate text file. In order to help with that, I used the given `threads.py` file which does this in a multi-threaded way.
 
-Note that this means those `7,322` halting machines actually appear twice in our output, once in the file `28337890523255977.txt` of machines generated from the root and once as the first machine of their own `<machine_encoding_number>.txt` file.
+Note that this means those `7,322` halting machines actually appear twice in our output, once in the file `28329094430233769.txt` of machines generated from the root, and once as the first machine of their own `<machine_encoding_number>.txt` file. This does not effect the duplication checks in any way, since all of those machines are halting, and are therefore irrelevant to the comparison of the undecided machines.
 
 ### Output
 
-I distributed the resulting 7322 smaller tasks were distributed to three different machines. In the interest of transparency, I opted to keep the output files in this structure and not to modify them at all. Note that some files were corrupted or incomplete - only those that end with the word `done` should be considered done.
+I distributed the resulting 7322 smaller tasks were distributed to `48` threads on a single machine. In the interest of transparency, I opted to keep the output files in this structure and not to modify them at all. The results are given as-is inside the `output.zip` file.
 
-The results are given as-is inside the `output.zip` file, in three folders named `bb0`, `bb1` and `bb2`, each representing a different machine on which things were distributed.
-
-In order to compare the final results with the original [all_5_states_undecided_machines_with_global_header.zip](https://dna.hamilton.ie/tsterin/all_5_states_undecided_machines_with_global_header.zip) file, I used the given `check_duplicate_seed.py` script.
+In order to compare the final results with the original [all_5_states_undecided_machines_with_global_header.zip](https://dna.hamilton.ie/tsterin/all_5_states_undecided_machines_with_global_header.zip) file, I used the given `check_duplicate_seed.py` script, which converts the undecided machine outputs to the format of the original repository, calculates the resulting hash, and asserts that it is the same as the expected hash of the original data.
 
 ## Methodology
 
@@ -37,15 +35,15 @@ In order to compare the final results with the original [all_5_states_undecided_
 
 My topmost priority was keeping things transparent, and explaining exactly what I did rather than "cleaning up" the data to much and possibly hurting its trustworthiness.
 
-This is way, as explained above, I kept the outputs in their original three folders representing the three machines I distributed on. This is also why I kept a typo in my initial root machine encoding, in the C++ source code as well as on the output files (it should have been `28329094430233769` rather than `28337890523255977`, and this affected all subsequent machines that kept this transition unchanged).
+This is why my initial results had the outputs in their original three folders representing the three machines I distributed on. This is also why those results kept a typo in my initial root machine encoding, in the C++ source code as well as on the output files (it should have been `28329094430233769` rather than `28337890523255977`, and this affected all subsequent machines that kept this transition unchanged).
 
-In a future re-run, I hope to mend both those issues and release a typo-free, single-file output zip with all the results coming from a single machine. I preferred, for now, to release the existing results, rather than delay it any further. I think they already provide significant additional confirmation for the results of the original repository.
+Both of those issues were later fixed, and the current output zip has all the results coming from an error-free run single machine.
 
 ### Keeping it Simple
 
 While I needed to use bit-slicing techniques to improve my runtime, I tried to keep my code as clear and concise as possible. Without comments or empty lines, the C++ code only contains about 200 lines, and together with the comments its behavior should hopefully be pretty clear.
 
-The attached python, both for distributing the enumeration work and for comparing the results with those of the original repository, are quite straight-forward and self-explanatory.
+The attached python programs, both for distributing the enumeration work and for comparing the results with those of the original repository, are quite straight-forward and self-explanatory.
 
 ### Keeping it Fair
 
@@ -57,10 +55,8 @@ One area that required me to actually compare source codes was the pruning of un
 
 The way I see it, the following things to do are, roughly at that order:
 
-1. Simplify and prettify the code - there are some cases where I didn't like the formatting or where things could be better designed - with command line flags, options, etc.
-2. Adding different codes to tell which machines are undecided because they were out of time and which are undecided because they were out of space.
-3. Re-run everything (without the typo mentioned above) on a single machine, and update the output to be a single file accordingly.
-4. Re-run with different pruning logic to match what was done in [Shawn Ligocki's results](https://github.com/sligocki/busy-beaver-data), which should allow us to resolve [this issue](https://github.com/bbchallenge/bbchallenge-seed/issues/2).
-5. Add a detailed explanation of the pruning logic, in order to help others understand exactly which pruning logic is used and to replicate future results more easily.
+1. Re-run with different pruning logic to match what was done in [Shawn Ligocki's results](https://github.com/sligocki/busy-beaver-data), which should allow us to resolve [this issue](https://github.com/bbchallenge/bbchallenge-seed/issues/2).
+2. Re-run everything on a single thread, and update the output and verification code accordingly.
+3. Add a detailed explanation of the pruning logic, in order to help others understand exactly which pruning logic is used and to replicate future results more easily.
 
 Of course, any and all input and suggestions are very welcome!
